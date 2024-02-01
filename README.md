@@ -1,33 +1,93 @@
 ## Determinism Fix
 
-In a [Slay the Spire](https://store.steampowered.com/app/646570/Slay_the_Spire/) run, all randomness (e.g. card draw,
-map layout, etc.) is determined by the run's seed -- with a few notable (likely unintentional) omissions.
+In Slay the Spire, if you discover a card via a potion (e.g. an attack, colorless, skill, or power potion) or via the
+Discovery card, there is a bug where the RNG is called an arbitrary number of times. This makes the remainder of the
+floor unpredictable. In other words, if you were to try to "replay" the actions someone took, you would not get the same
+outcome. This is the only instance of "true randomness" in a Slay the Spire run and is very likely an unintentional bug
+given that Foreign Influence does not have this same issue.
 
-This mod patches those cases such that their output is deterministic.
+This mod fixes this bug such that the RNG is called a deterministic number of times. 
 
+## Example
+
+This bug can be replicated by first discovering a card via a potion or via the Discovery card. Once that happens,
+anything that relies on the `cardRandomRng` RNG (which is generally used for random effects caused by playing a card)
+will be unpredictable.
+
+For example, if you had an attack and power potion, you could re-roll the power potion as many times as you want since
+the outcome will be determined by how many times `cardRandomRng` was called when the attack potion was used.
+
+# TODO: add example video of this
+
+## The bug
+
+The bug occurs within `DiscoveryAction`'s `update` method:
+
+```java
+// DiscoveryAction.java
+public void update() {
+      ArrayList generatedCards;
+      if (this.returnColorless) {
+         generatedCards = this.generateColorlessCardChoices();
+      } else {
+         generatedCards = this.generateCardChoices(this.cardType);
+      }
+
+      if (this.duration == Settings.ACTION_DUR_FAST) {
+         AbstractDungeon.cardRewardScreen.customCombatOpen(generatedCards, CardRewardScreen.TEXT[1], this.cardType != null);
+         this.tickDuration();
+      } else {
+         // ...
+      }
+  }
 ```
-// All randomness in a Slay the Spire run is generated from the seed EXCEPT
-// for three specific kinds of card transforms...
-//
-//   1. Living Wall event
-//   2. Transmogrifier event
-//   3. Neow's "Transform a card" bonus
-//
-// ...and DiscoveryAction's card generation (which triggers an RNG call on every update() call).
-//
-// (note: all other transforms (e.g. Neow's "Transform 2 cards" bonus) are determined
-// by the seed.)
-//
-// In other words, you can reproduce an arbitrary Slay the Spire run by "replaying" the
-// actions someone took in a run, UNLESS one of the events above is encountered. These
-// events use an unseeded RNG and will produce different results every time. This could
-// be abused e.g. to guarantee a specific transform by saving+continuing to reroll a
-// transform until the desired card is produced.
-//
-// This seems like an oversight, as all other card transforms (including Neow's
-// "Transform 2 cards" bonus) all used seeded RNGs.
-//
-// This patch replaces the unseeded RNG used by these three transform events with a
-// seeded, uncorrelated RNG. It also implements caching for DiscoveryAction s.t. the
-// number of RNG calls is deterministic.
+
+The `generate[...]CardChoices` method is called every time `update` is called -- which happens an arbitrary number of
+times, depending on how often the UI is re-rendered. These methods then use `cardRandomRng` to generate cards, so each
+`DiscoveryAction` will advance `cardRandomRng` an arbitrary number of times. This makes any actions that use
+`cardRandomRng` unpredictable for the rest of the floor (generally this is any source of randomness that arises from
+playing cards, e.g. which enemies are hit by Bouncing Flask). Note that this RNG is reset when advancing floors. 
+
+This is very likely an unintentional bug. There's no reason for this to be truly random, and the developers were clearly
+careful about generating all meaningful randomness from the seed. Additionally, there is almost identical "discovery"
+behavior via Foreign Influence and it handles this correctly by generating cards exactly once:
+
+```java
+public void update() {
+	if (this.duration == Settings.ACTION_DUR_FAST) {
+		AbstractDungeon.cardRewardScreen.customCombatOpen(this.generateCardChoices(), CardRewardScreen.TEXT[1], true);
+		this.tickDuration();
+	} else {
+		// ...
+	}
+}
+```
+
+In other words, this bug could be fixed by the Slay the Spire developers by changing `DiscoveryAction.java` like so
+(which is effectively equivalent to what this mod does):
+
+```diff
+// DiscoveryAction.java
+public void update() {
+-     ArrayList generatedCards;
+-     if (this.returnColorless) {
+-        generatedCards = this.generateColorlessCardChoices();
+-     } else {
+-        generatedCards = this.generateCardChoices(this.cardType);
+-     }
+-
+      if (this.duration == Settings.ACTION_DUR_FAST) {
++        ArrayList generatedCards;
++        if (this.returnColorless) {
++           generatedCards = this.generateColorlessCardChoices();
++        } else {
++           generatedCards = this.generateCardChoices(this.cardType);
++        }
++
+         AbstractDungeon.cardRewardScreen.customCombatOpen(generatedCards, CardRewardScreen.TEXT[1], this.cardType != null);
+         this.tickDuration();
+      } else {
+         // ...
+      }
+  }
 ```
