@@ -10,11 +10,11 @@ import determinismfix.DiscoveryActionCardCache;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
-/** Patches non-determinism in DiscoveryAction. See README. */
 public class DiscoveryActionPatch {
 	public static DiscoveryActionCardCache cache;
 
 	public static void onStartGame() {
+		// Reset the cache whenever a game is started/continued.
 		cache = new DiscoveryActionCardCache();
 	}
 
@@ -43,7 +43,7 @@ public class DiscoveryActionPatch {
 			ArrayList<AbstractCard> cards = cache.get(instance);
 			if (cards == null) {
 				// Log for debugging
-				String cardStr = cards.stream().map((AbstractCard c) -> c.name).collect(Collectors.joining(", "));
+				String cardStr = returnValue.stream().map((AbstractCard c) -> c.name).collect(Collectors.joining(", "));
 				DeterminismFix.logger.info("Caching cards for DiscoveryAction ({}): {}", instance.hashCode(), cardStr);
 
 				// We just generated cards for this DiscoveryAction for this first time. Cache them.

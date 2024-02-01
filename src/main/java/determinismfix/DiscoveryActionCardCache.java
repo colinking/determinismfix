@@ -4,6 +4,7 @@ import com.megacrit.cardcrawl.actions.unique.DiscoveryAction;
 import com.megacrit.cardcrawl.cards.AbstractCard;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class DiscoveryActionCardCache {
 	private final ArrayList<CacheResult> elements;

@@ -1,16 +1,13 @@
 package determinismfix;
 
 import basemod.BaseMod;
-import basemod.ModPanel;
 import basemod.interfaces.PostInitializeSubscriber;
 import basemod.interfaces.PreStartGameSubscriber;
-import com.badlogic.gdx.graphics.Texture;
 import com.evacipated.cardcrawl.modthespire.Loader;
 import com.evacipated.cardcrawl.modthespire.ModInfo;
 import com.evacipated.cardcrawl.modthespire.Patcher;
 import com.evacipated.cardcrawl.modthespire.lib.SpireInitializer;
 import com.megacrit.cardcrawl.helpers.ImageMaster;
-import determinismfix.patches.TransformCardPatch;
 import determinismfix.patches.DiscoveryActionPatch;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -41,7 +38,6 @@ public class DeterminismFix implements PostInitializeSubscriber, PreStartGameSub
 	@Override
 	public void receivePreStartGame() {
 		DiscoveryActionPatch.onStartGame();
-		TransformCardPatch.onStartGame();
 	}
 
 	@Override
