@@ -1,4 +1,4 @@
-## Determinism Fix
+## Slay the Spire: determinism fix mod
 
 In Slay the Spire, if you discover a card via a potion (e.g. an attack, colorless, skill, or power potion) or via the
 Discovery card, there is a bug where the RNG is called an arbitrary number of times. This makes the remainder of the
@@ -11,15 +11,17 @@ This mod fixes this bug such that the RNG is called a deterministic number of ti
 ## Example
 
 This bug can be replicated by first discovering a card via a potion or via the Discovery card. Once that happens,
-anything that relies on the `cardRandomRng` RNG (which is generally used for random effects caused by playing a card)
+anything that relies on `cardRandomRng` RNG (which is generally used for random effects caused by playing a card)
 will be unpredictable.
 
 For example, if you had an attack and power potion, you could re-roll the power potion as many times as you want since
 the outcome will be determined by how many times `cardRandomRng` was called when the attack potion was used.
 
-# TODO: add example video of this
+```
+TODO: add example video of this
+```
 
-## The bug
+## The bug explained
 
 The bug occurs within `DiscoveryAction`'s `update` method:
 
@@ -42,7 +44,7 @@ public void update() {
   }
 ```
 
-The `generate[...]CardChoices` method is called every time `update` is called -- which happens an arbitrary number of
+One of the `generate[...]CardChoices` methods is called every time `update` is called -- which happens an arbitrary number of
 times, depending on how often the UI is re-rendered. These methods then use `cardRandomRng` to generate cards, so each
 `DiscoveryAction` will advance `cardRandomRng` an arbitrary number of times. This makes any actions that use
 `cardRandomRng` unpredictable for the rest of the floor (generally this is any source of randomness that arises from
@@ -63,8 +65,8 @@ public void update() {
 }
 ```
 
-In other words, this bug could be fixed by the Slay the Spire developers by changing `DiscoveryAction.java` like so
-(which is effectively equivalent to what this mod does):
+In other words, this bug could be fixed by the Slay the Spire developers by changing `DiscoveryAction.java` like so (and
+this is what this mod does):
 
 ```diff
 // DiscoveryAction.java
