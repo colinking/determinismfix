@@ -21,8 +21,8 @@
 
     <!-- This information will be displayed in ModTheSpire, the modded launcher. -->
     <name>Determinism Fix</name>
-    <version>0.1.0</version>
-    <description>Fixes non-determinism in Slay the Spire.</description>
+    <version>1.0.0</version>
+    <description>Fixes a bug that makes seeded runs non-deterministic.</description>
 
     <groupId>co.colinking</groupId>
     <artifactId>${modID}</artifactId>

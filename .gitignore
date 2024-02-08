@@ -33,3 +33,6 @@ dependency-reduced-pom.xml
 
 # macOS
 .DS_Store
+
+# Steam
+steam

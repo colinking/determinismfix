@@ -19,7 +19,7 @@ without this issue. For more details, see the comparison below.
 
 ## Installation
 
-This mod can be installed via the [Steam workshop](https://steamcommunity.com/app/646570/workshop).
+Install this mod by subscribing to it in the [Steam workshop](https://steamcommunity.com/workshop/filedetails/?id=3156775649).
 
 
 ## The bug explained
