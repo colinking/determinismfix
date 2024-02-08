@@ -1,29 +1,41 @@
-## Slay the Spire: determinism fix mod
+## Determinism Fix
 
-In Slay the Spire, if you discover a card via a potion (e.g. an attack, colorless, skill, or power potion) or via the
-Discovery card, there is a bug where the RNG is called an arbitrary number of times. This makes the remainder of the
-floor unpredictable. In other words, if you were to try to "replay" the actions someone took, you would not get the same
-outcome. This is the only instance of "true randomness" in a Slay the Spire run and is very likely an unintentional bug
-given that Foreign Influence does not have this same issue.
+This mod fixes a bug in [Slay the Spire](https://store.steampowered.com/app/646570/Slay_the_Spire/) that makes
+seeded runs non-deterministic.
 
-This mod fixes this bug such that the RNG is called a deterministic number of times. 
+## Context
 
-## Example
+Given the same starting conditions (seed, ascension level, unlocks, etc.), you should be able to reproduce any Slay
+the Spire run by performing the same actions in the same order.
 
-This bug can be replicated by first discovering a card via a potion or via the Discovery card. Once that happens,
-anything that relies on `cardRandomRng` RNG (which is generally used for random effects caused by playing a card)
-will be unpredictable.
+However, there exists a bug with card discovery (specifically from a potion or the
+[Discovery](https://slay-the-spire.fandom.com/wiki/Discovery) card) where one of the random number generators (RNGs) is
+called an arbitrary number of times. For the rest of the floor, any random behavior that relies on the same RNG will be
+non-deterministic.
 
-For example, if you had an attack and power potion, you could re-roll the power potion as many times as you want since
-the outcome will be determined by how many times `cardRandomRng` was called when the attack potion was used.
+This is likely a bug since the
+[Foreign Influence](https://slay-the-spire.fandom.com/wiki/Foreign_Influence) card performs similar behavior, but without
+this issue. For more details, see the comparison below.
 
-```
-TODO: add example video of this
-```
+## Installation
+
+This mod can be installed via the Steam workshop.
+
 
 ## The bug explained
 
-The bug occurs within `DiscoveryAction`'s `update` method:
+In the example below, we start a floor by opening an attack potion and then a power potion. In a vanilla Slay the Spire
+run, the cards offered by the power potion are non-deterministic. If we save the run and continue, we'll usually get
+different cards.
+
+| Attempt | Vanilla                     | w/ Determinism Fix     |
+| --- |-----------------------------|------------------------|
+| 1 | ![1](.github/vanilla-1.png) | ![1](.github/df-1.png) |
+| 2 | ![2](.github/vanilla-2.png) | ![2](.github/df-2.png) |
+| 3 | ![3](.github/vanilla-3.png) | ![3](.github/df-3.png) |
+
+Under the hood, these potions use a `DiscoveryAction` to generate cards. The cards are generated within the `update`
+method:
 
 ```java
 // DiscoveryAction.java
@@ -44,17 +56,15 @@ public void update() {
   }
 ```
 
-One of the `generate[...]CardChoices` methods is called every time `update` is called -- which happens an arbitrary number of
-times, depending on how often the UI is re-rendered. These methods then use `cardRandomRng` to generate cards, so each
-`DiscoveryAction` will advance `cardRandomRng` an arbitrary number of times. This makes any actions that use
-`cardRandomRng` unpredictable for the rest of the floor (generally this is any source of randomness that arises from
-playing cards, e.g. which enemies are hit by Bouncing Flask). Note that this RNG is reset when advancing floors. 
+The `update` method is called (roughly) every "tick" of the game loop. Every time that happens, one of the
+`generate[...]CardChoices` methods is called which then advances the underlying RNG (`cardRandomRNG`) at least three
+times.
 
-This is very likely an unintentional bug. There's no reason for this to be truly random, and the developers were clearly
-careful about generating all meaningful randomness from the seed. Additionally, there is almost identical "discovery"
-behavior via Foreign Influence and it handles this correctly by generating cards exactly once:
+Compare that with Foreign Influence. This card has nearly identical behavior, but a different implementation via
+`ForeignInfluenceAction`:
 
 ```java
+// ForeignInfluenceAction.java
 public void update() {
 	if (this.duration == Settings.ACTION_DUR_FAST) {
 		AbstractDungeon.cardRewardScreen.customCombatOpen(this.generateCardChoices(), CardRewardScreen.TEXT[1], true);
@@ -65,8 +75,24 @@ public void update() {
 }
 ```
 
-In other words, this bug could be fixed by the Slay the Spire developers by changing `DiscoveryAction.java` like so (and
-this is what this mod does):
+The logic within the `this.duration == Settings.ACTION_DUR_FAST` `if` statement is only called once (since
+`this.duration` is decremented by `tickDuration`), so `generateCardChoices` is only called once.
+
+Returning to our example, using the attack potion performs a `DiscoveryAction` which calls `cardRandomRNG` an arbitrary
+number of times. At this point, performing any actions that rely on `cardRandomRNG` will be non-deterministic (generally any random actions that
+arise from playing cards, such as which enemies are hit by
+[Bouncing Flask](https://slay-the-spire.fandom.com/wiki/Bouncing_Flask)). The cards generated by a power potion rely on
+`cardRandomRNG`, so they are non-deterministic.
+
+> Note the attack potion in this example always generates the same cards. This is because the card reward screen is
+> opened with whichever cards are generated on the first call to `update`. The subsequent calls to the
+> `generate[...]CardChoices` methods are ignored, but they still advance `cardRandomRNG` (which is the problem!). This
+> mod fixes this issue by preventing each `DiscoveryAction` from calling the `generate[...]CardChoices` methods more
+> than once.
+
+## Proposed fix
+
+The developers are no longer working on Slay the Spire, but this bug could be fixed upstream by updating `DiscoveryAction` to match `ForeignInfluenceAction`:
 
 ```diff
 // DiscoveryAction.java
